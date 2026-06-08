@@ -13,9 +13,10 @@
       --border: #dee2e6;
       --text: #212529;
       --muted: #6c757d;
-      --primary: #0d6efd;
-      --primary-hover: #0b5ed7;
-      --primary-light: #e7f1ff;
+      --primary: #5b21b6;          /* dunkel-lila (mandats) */
+      --primary-hover: #4c1d95;
+      --primary-light: #ede9fe;
+      --accent: #c026d3;            /* fuchsia-magenta (feed) */
       --success: #198754;
       --badge-bg: #e9ecef;
       --badge-text: #495057;
@@ -50,7 +51,8 @@
       z-index: 100;
     }
     .logo { font-weight: 700; font-size: 18px; color: var(--primary); white-space: nowrap; text-decoration: none; }
-    .logo span { color: var(--text); font-weight: 400; }
+    .logo .feed { color: var(--accent); }
+    .logo .tagline { color: var(--text); font-weight: 400; }
     .search-wrap { flex: 1; max-width: 480px; position: relative; }
     .search-input {
       width: 100%;
@@ -242,7 +244,7 @@
 </head>
 <body>
   <header>
-    <a class="logo" href="./" title="Startseite">mandatsfeed <span>· Parlamentarische Aktivität</span></a>
+    <a class="logo" href="./" title="Startseite">mandats<span class="feed">feed</span> <span class="tagline">· Parlamentarische Aktivität</span></a>
     <div class="search-wrap">
       <input id="search" class="search-input" placeholder="Person oder Fraktion suchen …">
     </div>
