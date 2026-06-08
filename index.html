@@ -494,6 +494,9 @@
           </div>
           <div class="feed-actions">
             <button class="copy-btn" data-url="${escapeHtml(rssUrl)}">📋 RSS-URL kopieren</button>
+            ${(entry.externalFeeds ?? []).map((ef) => `
+              <button class="copy-btn" data-url="${escapeHtml(ef.url)}" title="${escapeHtml(ef.url)}">📺 ${escapeHtml(ef.label)} (RSS)</button>
+            `).join("")}
             <button class="copy-btn" id="basket-add-btn">+ Mein Feed</button>
           </div>
         </div>
