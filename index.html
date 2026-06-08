@@ -444,8 +444,8 @@
       root.querySelectorAll(".leaf-add").forEach(el => {
         el.addEventListener("click", (e) => {
           e.stopPropagation();
-          const { parliament, wp, kind, slug, label, rss } = el.dataset;
-          toggleBasket({ parliament, wp: Number(wp), kind, slug, label, rss });
+          const { parliament, wp, kind, slug, label } = el.dataset;
+          toggleBasket({ parliament, wp: Number(wp), kind, slug, label });
         });
       });
     }
@@ -576,10 +576,29 @@
       }).join("");
     }
 
-    function toggleBasket(entry) {
-      const idx = basket.findIndex(b => b.parliament === entry.parliament && b.wp === entry.wp && b.kind === entry.kind && b.slug === entry.slug);
-      if (idx >= 0) basket.splice(idx, 1);
-      else basket.push(entry);
+    // Vollständigen Metadata-Eintrag (mit rssUrl + externalFeeds) aus der
+    // metadata.json holen, basierend auf parliament/wp/kind/slug.
+    function lookupEntry(sel) {
+      const p = metadata.parliaments.find(x => x.slug === sel.parliament);
+      const w = p?.wahlperioden.find(x => x.wp === sel.wp);
+      const list = sel.kind === "person" ? w?.personen : w?.fraktionen;
+      return list?.find(x => x.slug === sel.slug);
+    }
+
+    function toggleBasket(sel) {
+      const idx = basket.findIndex(b => b.parliament === sel.parliament && b.wp === sel.wp && b.kind === sel.kind && b.slug === sel.slug);
+      if (idx >= 0) {
+        basket.splice(idx, 1);
+      } else {
+        const full = lookupEntry(sel);
+        if (!full) return;
+        basket.push({
+          parliament: sel.parliament, wp: sel.wp, kind: sel.kind, slug: sel.slug,
+          label: sel.label ?? full.label,
+          rss: REPO_BASE + full.rssUrl,
+          externalFeeds: full.externalFeeds ?? [],
+        });
+      }
       saveBasket();
       renderBasket();
       renderSidebar(document.getElementById("search").value);
@@ -592,9 +611,14 @@
         panel.innerHTML = `<div class="basket-empty">Klick links auf das „+" hinter einem Eintrag, um ihn zu sammeln. Du bekommst dann hier die abonnierbaren RSS-URLs.</div>`;
         return;
       }
+      // Alle URLs zaehlen: jede mandatsfeed-RSS + jeder externalFeed.
+      const allUrls = basket.flatMap(b => [b.rss, ...(b.externalFeeds ?? []).map(f => f.url)]);
       panel.innerHTML = basket.map((b, i) => {
         const parliament = metadata.parliaments.find(p => p.slug === b.parliament);
         const wpLabel = parliament?.wahlperioden.find(w => w.wp === b.wp)?.label ?? "";
+        const extButtons = (b.externalFeeds ?? []).map(f => `
+              <button class="copy-btn" data-url="${escapeHtml(f.url)}" title="${escapeHtml(f.url)}">📺 ${escapeHtml(f.label)}</button>
+            `).join("");
         return `
           <div class="basket-entry">
             <div class="basket-entry-head">
@@ -604,12 +628,13 @@
               </div>
               <button class="basket-remove" data-idx="${i}" title="Entfernen">×</button>
             </div>
-            <button class="copy-btn" data-url="${escapeHtml(b.rss)}">📋 RSS kopieren</button>
+            <button class="copy-btn" data-url="${escapeHtml(b.rss)}">📋 mandatsfeed RSS</button>
+            ${extButtons}
           </div>`;
       }).join("") + `
         <div class="basket-bulk">
           <div class="basket-bulk-label">Alle URLs (eine pro Zeile)</div>
-          <button class="copy-btn" id="bulk-copy">📋 Alle ${basket.length} URLs</button>
+          <button class="copy-btn" id="bulk-copy">📋 Alle ${allUrls.length} URLs</button>
         </div>`;
       panel.querySelectorAll(".basket-remove").forEach(el => {
         el.addEventListener("click", () => {
@@ -619,9 +644,9 @@
       bindCopyButtons(panel);
       const bulk = panel.querySelector("#bulk-copy");
       if (bulk) bulk.addEventListener("click", () => {
-        navigator.clipboard.writeText(basket.map(b => b.rss).join("\n")).then(() => {
+        navigator.clipboard.writeText(allUrls.join("\n")).then(() => {
           bulk.classList.add("copied"); bulk.textContent = "✓ kopiert";
-          setTimeout(() => { bulk.classList.remove("copied"); bulk.textContent = `📋 Alle ${basket.length} URLs`; }, 1500);
+          setTimeout(() => { bulk.classList.remove("copied"); bulk.textContent = `📋 Alle ${allUrls.length} URLs`; }, 1500);
         });
       });
     }
