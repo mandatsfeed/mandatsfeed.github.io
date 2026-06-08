@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mandatsfeed — Parlamentarische Aktivität entdecken</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #dee2e6;
+      --text: #212529;
+      --muted: #6c757d;
+      --primary: #0d6efd;
+      --primary-hover: #0b5ed7;
+      --primary-light: #e7f1ff;
+      --success: #198754;
+      --badge-bg: #e9ecef;
+      --badge-text: #495057;
+      --type-rede: #6f42c1;
+      --type-antrag: #fd7e14;
+      --type-ka: #20c997;
+      --type-ga: #0dcaf0;
+      --type-ges: #d63384;
+      --type-abst: #dc3545;
+      --shadow: 0 1px 3px rgba(0,0,0,.08);
+      --radius: 6px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { font-weight: 700; font-size: 18px; color: var(--primary); white-space: nowrap; text-decoration: none; }
+    .logo span { color: var(--text); font-weight: 400; }
+    .search-wrap { flex: 1; max-width: 480px; position: relative; }
+    .search-input {
+      width: 100%;
+      padding: 8px 36px 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,110,253,.1); }
+    .nav-link {
+      color: var(--muted); text-decoration: none; font-size: 13px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .nav-link:hover { color: var(--primary); }
+    .basket-toggle {
+      background: var(--primary); color: #fff; border: none;
+      padding: 8px 14px; border-radius: var(--radius); cursor: pointer;
+      font-size: 13px; font-weight: 600;
+    }
+    .basket-toggle:hover { background: var(--primary-hover); }
+
+    /* Layout */
+    main {
+      display: flex;
+      height: calc(100vh - 53px);
+    }
+    aside.sidebar {
+      width: 320px; min-width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px 4px 12px 12px;
+      flex-shrink: 0;
+    }
+    .content {
+      flex: 1; overflow-y: auto; padding: 16px 20px;
+    }
+    .basket-panel {
+      width: 340px; min-width: 300px;
+      background: var(--surface); border-left: 1px solid var(--border);
+      overflow-y: auto; flex-shrink: 0; display: none;
+    }
+    .basket-panel.open { display: flex; flex-direction: column; }
+
+    /* Sidebar tree */
+    .tree-node { font-size: 13px; }
+    .tree-toggle {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 6px; cursor: pointer; user-select: none;
+      border-radius: 4px; color: var(--text);
+    }
+    .tree-toggle:hover { background: var(--bg); }
+    .tree-toggle .chev { color: var(--muted); transition: transform .15s; display: inline-block; width: 12px; }
+    .tree-node.open > .tree-toggle .chev { transform: rotate(90deg); }
+    .tree-label { flex: 1; font-weight: 600; }
+    .tree-count { color: var(--muted); font-size: 11px; }
+    .tree-children { display: none; padding-left: 16px; border-left: 1px solid var(--border); margin-left: 12px; }
+    .tree-node.open > .tree-children { display: block; }
+    .tree-leaf {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 8px; cursor: pointer; border-radius: 4px;
+      color: var(--text); text-decoration: none;
+      font-size: 13px; line-height: 1.35;
+    }
+    .tree-leaf:hover { background: var(--bg); }
+    .tree-leaf.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+    .tree-leaf .leaf-label { flex: 1; }
+    .tree-leaf .leaf-count { color: var(--muted); font-size: 11px; }
+    .tree-leaf .leaf-add {
+      background: none; border: none; cursor: pointer; color: var(--muted);
+      padding: 0 4px; font-size: 14px; line-height: 1;
+    }
+    .tree-leaf .leaf-add:hover { color: var(--primary); }
+    .tree-leaf .leaf-add.added { color: var(--success); }
+    .tree-section-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--muted);
+      padding: 8px 6px 4px;
+    }
+
+    /* Content area */
+    .content-empty {
+      text-align: center; padding: 60px 20px; color: var(--muted);
+    }
+    .content-empty h2 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+    .content-empty p { font-size: 14px; max-width: 480px; margin: 0 auto 12px; }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px; margin-top: 24px; max-width: 800px; margin-left: auto; margin-right: auto;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px; text-align: left;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .stat-value { font-size: 22px; font-weight: 700; color: var(--primary); margin-top: 2px; }
+    .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .feed-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+    }
+    .feed-title { font-size: 20px; font-weight: 700; }
+    .feed-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .feed-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .type-filter {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .type-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 12px; font-size: 11px;
+      cursor: pointer; background: var(--badge-bg); color: var(--badge-text);
+      border: 1px solid transparent;
+    }
+    .type-chip.active { background: var(--primary); color: #fff; }
+    .type-chip:hover { border-color: var(--primary); }
+
+    .feed-list { display: flex; flex-direction: column; gap: 10px; }
+    .feed-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 14px;
+    }
+    .item-head {
+      display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px;
+    }
+    .type-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .03em; color: #fff; flex-shrink: 0; margin-top: 1px;
+    }
+    .type-badge.rede { background: var(--type-rede); }
+    .type-badge.antrag { background: var(--type-antrag); }
+    .type-badge.kleine_anfrage { background: var(--type-ka); }
+    .type-badge.grosse_anfrage { background: var(--type-ga); }
+    .type-badge.gesetzentwurf { background: var(--type-ges); }
+    .type-badge.abstimmung { background: var(--type-abst); }
+    .type-badge.beschlussempfehlung { background: var(--muted); }
+    .item-title { font-size: 14px; font-weight: 600; flex: 1; line-height: 1.35; }
+    .item-title a { color: var(--text); text-decoration: none; }
+    .item-title a:hover { color: var(--primary); }
+    .item-meta { font-size: 11px; color: var(--muted); margin-top: 6px; }
+    .item-meta .date { font-weight: 600; color: var(--text); }
+
+    /* Basket */
+    .basket-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .basket-title { font-size: 14px; font-weight: 700; }
+    .basket-clear { font-size: 12px; color: var(--muted); cursor: pointer; background: none; border: none; }
+    .basket-empty { padding: 20px 16px; color: var(--muted); font-size: 13px; }
+    .basket-entry { border-bottom: 1px solid var(--border); padding: 12px 16px; }
+    .basket-entry-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .basket-entry-name { font-size: 13px; font-weight: 600; }
+    .basket-remove { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; }
+    .basket-remove:hover { color: #dc3545; }
+    .basket-entry-path { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .copy-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 4px; font-size: 12px;
+      border: 1px solid var(--border); background: var(--bg);
+      cursor: pointer; transition: all .15s; margin: 2px;
+    }
+    .copy-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .copy-btn.copied { background: var(--success); color: #fff; border-color: var(--success); }
+    .basket-bulk { padding: 12px 16px; background: var(--bg); }
+    .basket-bulk-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+
+    /* Footer */
+    footer {
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 10px 20px; font-size: 11px; color: var(--muted);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    footer a { color: var(--muted); }
+
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--border); border-top-color: var(--primary);
+      border-radius: 50%; animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    mark { background: #fff3cd; border-radius: 2px; padding: 0 1px; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="logo" href="./" title="Startseite">mandatsfeed <span>· Parlamentarische Aktivität</span></a>
+    <div class="search-wrap">
+      <input id="search" class="search-input" placeholder="Person oder Fraktion suchen …">
+    </div>
+    <a class="nav-link" href="https://github.com/mandatsfeed/mandatsfeed" target="_blank" rel="noopener">Quelltext</a>
+    <button id="basket-toggle" class="basket-toggle">Mein Feed (<span id="basket-count">0</span>)</button>
+  </header>
+
+  <main>
+    <aside class="sidebar" id="sidebar">
+      <div class="content-empty"><span class="spinner"></span> Lade Metadata …</div>
+    </aside>
+
+    <div class="content" id="content">
+      <div class="content-empty">
+        <h2>Willkommen bei mandatsfeed</h2>
+        <p>Wähle links ein Parlament und dann eine Person oder Fraktion, um deren chronologische Aktivitäten zu sehen — oder klick auf das „+", um Feeds in „Mein Feed" zu sammeln und als RSS zu abonnieren.</p>
+        <div id="overview-stats"></div>
+      </div>
+    </div>
+
+    <aside class="basket-panel" id="basket-panel">
+      <div class="basket-head">
+        <span class="basket-title">Mein Feed</span>
+        <button class="basket-clear" id="basket-clear">Leeren</button>
+      </div>
+      <div id="basket-list"></div>
+    </aside>
+  </main>
+
+  <footer>
+    <span>Daten: <a href="https://github.com/mandatsfeed/mandatsfeed" target="_blank" rel="noopener">mandatsfeed</a> · MIT-Code · CC BY-SA 4.0 Daten</span>
+    <span>Schwesterprojekt: <a href="https://amtsfeed.github.io/" target="_blank" rel="noopener">amtsfeed</a></span>
+  </footer>
+
+  <script>
+    const METADATA_URL = "./mandatsfeed/metadata.json";
+    const REPO_BASE = "./mandatsfeed/";
+    const TYPE_LABELS = {
+      "rede": "Rede",
+      "antrag": "Antrag",
+      "kleine_anfrage": "K. Anfrage",
+      "grosse_anfrage": "G. Anfrage",
+      "gesetzentwurf": "Gesetzentwurf",
+      "abstimmung": "Abstimmung",
+      "beschlussempfehlung": "BeschlEmpf",
+    };
+
+    let metadata = null;
+    let currentSelection = null; // { parliament, wp, kind, slug, label }
+    let activeTypes = new Set(Object.keys(TYPE_LABELS));
+    let basket = loadBasket();
+
+    function loadBasket() {
+      try { return JSON.parse(localStorage.getItem("mandatsfeed-basket") || "[]"); }
+      catch { return []; }
+    }
+    function saveBasket() { localStorage.setItem("mandatsfeed-basket", JSON.stringify(basket)); }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function init() {
+      try {
+        metadata = await (await fetch(METADATA_URL)).json();
+      } catch (e) {
+        document.getElementById("sidebar").innerHTML = `<div class="content-empty">Fehler beim Laden der Metadata.</div>`;
+        return;
+      }
+      renderSidebar();
+      renderOverview();
+      renderBasket();
+      document.getElementById("search").addEventListener("input", onSearch);
+      document.getElementById("basket-toggle").addEventListener("click", () => {
+        document.getElementById("basket-panel").classList.toggle("open");
+      });
+      document.getElementById("basket-clear").addEventListener("click", () => {
+        basket = []; saveBasket(); renderBasket(); renderSidebar();
+      });
+    }
+
+    function renderOverview() {
+      const counts = { parliaments: 0, personen: 0, fraktionen: 0, activities: 0 };
+      for (const p of metadata.parliaments) {
+        counts.parliaments++;
+        for (const w of p.wahlperioden) {
+          counts.personen += w.personen.length;
+          counts.fraktionen += w.fraktionen.length;
+          for (const e of [...w.personen, ...w.fraktionen]) counts.activities += e.count;
+        }
+      }
+      document.getElementById("overview-stats").innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-label">Parlamente</div><div class="stat-value">${counts.parliaments}</div></div>
+          <div class="stat-card"><div class="stat-label">Personen-Feeds</div><div class="stat-value">${counts.personen}</div><div class="stat-sub">subscribable per RSS</div></div>
+          <div class="stat-card"><div class="stat-label">Fraktions-Feeds</div><div class="stat-value">${counts.fraktionen}</div></div>
+          <div class="stat-card"><div class="stat-label">Aktivitäten (gezählt)</div><div class="stat-value">${counts.activities.toLocaleString("de-DE")}</div><div class="stat-sub">Summe aller Items</div></div>
+        </div>`;
+    }
+
+    function renderSidebar(filter = "") {
+      const f = filter.toLowerCase().trim();
+      const root = document.getElementById("sidebar");
+      const out = [];
+      for (const p of metadata.parliaments) {
+        const sections = [];
+        for (const w of p.wahlperioden) {
+          const personen = w.personen.filter(e => !f || e.label.toLowerCase().includes(f));
+          const fraktionen = w.fraktionen.filter(e => !f || e.label.toLowerCase().includes(f));
+          if (f && personen.length === 0 && fraktionen.length === 0) continue;
+          const wpOpen = !!f || personen.length > 0 || fraktionen.length > 0;
+          sections.push(`
+            <div class="tree-node ${wpOpen ? "open" : ""}" data-wp="${w.wp}">
+              <div class="tree-toggle">
+                <span class="chev">▶</span>
+                <span class="tree-label">${escapeHtml(w.label)}</span>
+                <span class="tree-count">${personen.length + fraktionen.length}</span>
+              </div>
+              <div class="tree-children">
+                ${fraktionen.length ? `<div class="tree-section-title">Fraktionen</div>${fraktionen.map(e => renderLeaf(p, w, "fraktion", e, f)).join("")}` : ""}
+                ${personen.length ? `<div class="tree-section-title">Personen</div>${personen.map(e => renderLeaf(p, w, "person", e, f)).join("")}` : ""}
+              </div>
+            </div>`);
+        }
+        if (sections.length === 0) continue;
+        const pOpen = !!f || sections.length === metadata.parliaments[0]?.wahlperioden.length;
+        out.push(`
+          <div class="tree-node ${pOpen ? "open" : ""}" data-parliament="${p.slug}">
+            <div class="tree-toggle">
+              <span class="chev">▶</span>
+              <span class="tree-label">${escapeHtml(p.label)}</span>
+            </div>
+            <div class="tree-children">${sections.join("")}</div>
+          </div>`);
+      }
+      root.innerHTML = out.join("") || `<div class="content-empty">Nichts gefunden für „${escapeHtml(filter)}".</div>`;
+
+      root.querySelectorAll(".tree-toggle").forEach(el => {
+        el.addEventListener("click", () => el.parentElement.classList.toggle("open"));
+      });
+      root.querySelectorAll(".tree-leaf").forEach(el => {
+        el.addEventListener("click", (e) => {
+          if (e.target.classList.contains("leaf-add")) return;
+          const { parliament, wp, kind, slug, label } = el.dataset;
+          selectFeed({ parliament, wp: Number(wp), kind, slug, label });
+        });
+      });
+      root.querySelectorAll(".leaf-add").forEach(el => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const { parliament, wp, kind, slug, label, rss } = el.dataset;
+          toggleBasket({ parliament, wp: Number(wp), kind, slug, label, rss });
+        });
+      });
+    }
+
+    function renderLeaf(parliament, wp, kind, entry, filter) {
+      const isActive = currentSelection &&
+        currentSelection.parliament === parliament.slug &&
+        currentSelection.wp === wp.wp &&
+        currentSelection.kind === kind && currentSelection.slug === entry.slug;
+      const inBasket = basket.some(b => b.parliament === parliament.slug && b.wp === wp.wp && b.kind === kind && b.slug === entry.slug);
+      const label = filter
+        ? entry.label.replace(new RegExp("(" + filter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"), "<mark>$1</mark>")
+        : escapeHtml(entry.label);
+      return `<div class="tree-leaf ${isActive ? "active" : ""}"
+        data-parliament="${parliament.slug}" data-wp="${wp.wp}" data-kind="${kind}"
+        data-slug="${entry.slug}" data-label="${escapeHtml(entry.label)}">
+        <span class="leaf-label">${label}</span>
+        <span class="leaf-count">${entry.count}</span>
+        <button class="leaf-add ${inBasket ? "added" : ""}" title="${inBasket ? "Aus Mein Feed entfernen" : "Zu Mein Feed hinzufügen"}"
+          data-parliament="${parliament.slug}" data-wp="${wp.wp}" data-kind="${kind}"
+          data-slug="${entry.slug}" data-label="${escapeHtml(entry.label)}"
+          data-rss="${escapeHtml(entry.rssUrl)}">${inBasket ? "✓" : "+"}</button>
+      </div>`;
+    }
+
+    function onSearch(e) { renderSidebar(e.target.value); }
+
+    async function selectFeed(sel) {
+      currentSelection = sel;
+      renderSidebar(document.getElementById("search").value);
+      const parliament = metadata.parliaments.find(p => p.slug === sel.parliament);
+      const wp = parliament.wahlperioden.find(w => w.wp === sel.wp);
+      const collection = sel.kind === "person" ? wp.personen : wp.fraktionen;
+      const entry = collection.find(e => e.slug === sel.slug);
+      const rssUrl = REPO_BASE + entry.rssUrl.replace(/^wiki\//, "");
+      const content = document.getElementById("content");
+      content.innerHTML = `
+        <div class="feed-head">
+          <div>
+            <div class="feed-title">${escapeHtml(sel.label)}</div>
+            <div class="feed-meta">${escapeHtml(parliament.label)} · ${escapeHtml(wp.label)} · ${entry.count} Aktivitäten</div>
+          </div>
+          <div class="feed-actions">
+            <button class="copy-btn" data-url="${escapeHtml(rssUrl)}">📋 RSS-URL kopieren</button>
+            <button class="copy-btn" id="basket-add-btn">+ Mein Feed</button>
+          </div>
+        </div>
+        <div class="type-filter" id="type-filter"></div>
+        <div class="feed-list" id="feed-list"><div class="content-empty"><span class="spinner"></span> Lade RSS …</div></div>`;
+      bindCopyButtons(content);
+      const addBtn = document.getElementById("basket-add-btn");
+      addBtn.addEventListener("click", () => toggleBasket({ ...sel, rss: rssUrl }));
+      try {
+        const xml = await (await fetch(rssUrl)).text();
+        const items = parseRssItems(xml);
+        renderTypeFilter(items);
+        renderFeedList(items);
+      } catch {
+        document.getElementById("feed-list").innerHTML = `<div class="content-empty">RSS konnte nicht geladen werden.</div>`;
+      }
+    }
+
+    function parseRssItems(xml) {
+      const doc = new DOMParser().parseFromString(xml, "application/xml");
+      return Array.from(doc.querySelectorAll("item")).map(it => {
+        const desc = it.querySelector("description")?.textContent ?? "";
+        // Type aus Description rausparsen (Format: "Antrag · ..." / "Kleine Anfrage (..)" / etc.)
+        let type = "antrag";
+        if (/^Rede/.test(desc)) type = "rede";
+        else if (/^Antrag/.test(desc)) type = "antrag";
+        else if (/^Kleine Anfrage/.test(desc)) type = "kleine_anfrage";
+        else if (/^Große Anfrage/.test(desc)) type = "grosse_anfrage";
+        else if (/^Gesetzentwurf/.test(desc)) type = "gesetzentwurf";
+        else if (/^Abstimmung/.test(desc)) type = "abstimmung";
+        else if (/^Beschluss/.test(desc)) type = "beschlussempfehlung";
+        return {
+          guid: it.querySelector("guid")?.textContent ?? "",
+          title: it.querySelector("title")?.textContent ?? "",
+          link: it.querySelector("link")?.textContent ?? "",
+          date: it.querySelector("pubDate")?.textContent ?? "",
+          desc,
+          type,
+        };
+      });
+    }
+
+    function renderTypeFilter(items) {
+      const types = new Set(items.map(i => i.type));
+      const wrap = document.getElementById("type-filter");
+      wrap.innerHTML = Array.from(types).map(t => `
+        <span class="type-chip ${activeTypes.has(t) ? "active" : ""}" data-type="${t}">${TYPE_LABELS[t] ?? t}</span>
+      `).join("");
+      wrap.querySelectorAll(".type-chip").forEach(el => {
+        el.addEventListener("click", () => {
+          const t = el.dataset.type;
+          if (activeTypes.has(t)) activeTypes.delete(t);
+          else activeTypes.add(t);
+          el.classList.toggle("active");
+          renderFeedList(items);
+        });
+      });
+    }
+
+    function renderFeedList(items) {
+      const filtered = items.filter(i => activeTypes.has(i.type));
+      const list = document.getElementById("feed-list");
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="content-empty">Keine Items für die aktiven Filter.</div>`;
+        return;
+      }
+      list.innerHTML = filtered.map(i => {
+        const dateText = i.date ? new Date(i.date).toLocaleDateString("de-DE", { year: "numeric", month: "short", day: "numeric" }) : "";
+        return `
+          <div class="feed-item">
+            <div class="item-head">
+              <span class="type-badge ${i.type}">${TYPE_LABELS[i.type] ?? i.type}</span>
+              <div class="item-title"><a href="${escapeHtml(i.link)}" target="_blank" rel="noopener">${escapeHtml(i.title)}</a></div>
+            </div>
+            <div class="item-meta"><span class="date">${dateText}</span> · ${escapeHtml(i.desc)}</div>
+          </div>`;
+      }).join("");
+    }
+
+    function toggleBasket(entry) {
+      const idx = basket.findIndex(b => b.parliament === entry.parliament && b.wp === entry.wp && b.kind === entry.kind && b.slug === entry.slug);
+      if (idx >= 0) basket.splice(idx, 1);
+      else basket.push(entry);
+      saveBasket();
+      renderBasket();
+      renderSidebar(document.getElementById("search").value);
+    }
+
+    function renderBasket() {
+      document.getElementById("basket-count").textContent = basket.length;
+      const panel = document.getElementById("basket-list");
+      if (basket.length === 0) {
+        panel.innerHTML = `<div class="basket-empty">Klick links auf das „+" hinter einem Eintrag, um ihn zu sammeln. Du bekommst dann hier die abonnierbaren RSS-URLs.</div>`;
+        return;
+      }
+      panel.innerHTML = basket.map((b, i) => {
+        const parliament = metadata.parliaments.find(p => p.slug === b.parliament);
+        const wpLabel = parliament?.wahlperioden.find(w => w.wp === b.wp)?.label ?? "";
+        return `
+          <div class="basket-entry">
+            <div class="basket-entry-head">
+              <div>
+                <div class="basket-entry-name">${escapeHtml(b.label)}</div>
+                <div class="basket-entry-path">${escapeHtml(parliament?.label ?? "")} · ${escapeHtml(wpLabel)} · ${b.kind === "person" ? "Person" : "Fraktion"}</div>
+              </div>
+              <button class="basket-remove" data-idx="${i}" title="Entfernen">×</button>
+            </div>
+            <button class="copy-btn" data-url="${escapeHtml(b.rss)}">📋 RSS kopieren</button>
+          </div>`;
+      }).join("") + `
+        <div class="basket-bulk">
+          <div class="basket-bulk-label">Alle URLs (eine pro Zeile)</div>
+          <button class="copy-btn" id="bulk-copy">📋 Alle ${basket.length} URLs</button>
+        </div>`;
+      panel.querySelectorAll(".basket-remove").forEach(el => {
+        el.addEventListener("click", () => {
+          basket.splice(Number(el.dataset.idx), 1); saveBasket(); renderBasket(); renderSidebar(document.getElementById("search").value);
+        });
+      });
+      bindCopyButtons(panel);
+      const bulk = panel.querySelector("#bulk-copy");
+      if (bulk) bulk.addEventListener("click", () => {
+        navigator.clipboard.writeText(basket.map(b => b.rss).join("\n")).then(() => {
+          bulk.classList.add("copied"); bulk.textContent = "✓ kopiert";
+          setTimeout(() => { bulk.classList.remove("copied"); bulk.textContent = `📋 Alle ${basket.length} URLs`; }, 1500);
+        });
+      });
+    }
+
+    function bindCopyButtons(scope) {
+      scope.querySelectorAll(".copy-btn[data-url]").forEach(el => {
+        el.addEventListener("click", () => {
+          navigator.clipboard.writeText(el.dataset.url).then(() => {
+            const orig = el.textContent;
+            el.classList.add("copied"); el.textContent = "✓ kopiert";
+            setTimeout(() => { el.classList.remove("copied"); el.textContent = orig; }, 1500);
+          });
+        });
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
