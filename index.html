@@ -53,7 +53,12 @@
     .logo { font-weight: 700; font-size: 18px; color: var(--primary); white-space: nowrap; text-decoration: none; }
     .logo .feed { color: var(--accent); }
     .logo .tagline { color: var(--text); font-weight: 400; }
-    .search-wrap { flex: 1; max-width: 480px; position: relative; }
+    .search-wrap {
+      position: sticky; top: 0; z-index: 5;
+      background: var(--surface);
+      padding: 8px 8px 8px;
+      border-bottom: 1px solid var(--border);
+    }
     .search-input {
       width: 100%;
       padding: 8px 36px 8px 12px;
@@ -253,7 +258,7 @@
       .logo { font-size: 16px; }
       .logo .tagline { display: none; }
       .nav-link { display: none; }
-      .search-wrap { order: 3; flex-basis: 100%; max-width: none; }
+      .search-wrap { padding: 8px 8px 4px; }
       .basket-toggle { padding: 6px 10px; font-size: 12px; }
       .menu-toggle { display: inline-flex; }
       main {
@@ -287,16 +292,18 @@
   <header>
     <button id="menu-toggle" class="menu-toggle" aria-label="Menü">☰</button>
     <a class="logo" href="./" title="Startseite">mandats<span class="feed">feed</span> <span class="tagline">· Parlamentarische Aktivität</span></a>
-    <div class="search-wrap">
-      <input id="search" class="search-input" placeholder="Person oder Fraktion suchen …">
-    </div>
     <a class="nav-link" href="https://github.com/mandatsfeed/mandatsfeed" target="_blank" rel="noopener">Quelltext</a>
     <button id="basket-toggle" class="basket-toggle">Mein Feed (<span id="basket-count">0</span>)</button>
   </header>
 
   <main>
     <aside class="sidebar" id="sidebar">
-      <div class="content-empty"><span class="spinner"></span> Lade Metadata …</div>
+      <div class="search-wrap">
+        <input id="search" class="search-input" placeholder="Person oder Fraktion suchen …">
+      </div>
+      <div id="sidebar-tree">
+        <div class="content-empty"><span class="spinner"></span> Lade Metadata …</div>
+      </div>
     </aside>
 
     <div class="content" id="content">
@@ -357,7 +364,7 @@
       try {
         metadata = await (await fetch(METADATA_URL)).json();
       } catch (e) {
-        document.getElementById("sidebar").innerHTML = `<div class="content-empty">Fehler beim Laden der Metadata.</div>`;
+        document.getElementById("sidebar-tree").innerHTML = `<div class="content-empty">Fehler beim Laden der Metadata.</div>`;
         return;
       }
       renderSidebar();
@@ -396,7 +403,7 @@
 
     function renderSidebar(filter = "") {
       const f = filter.toLowerCase().trim();
-      const root = document.getElementById("sidebar");
+      const root = document.getElementById("sidebar-tree");
       const out = [];
       for (const p of metadata.parliaments) {
         const sections = [];
