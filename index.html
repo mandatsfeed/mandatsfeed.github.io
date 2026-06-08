@@ -380,6 +380,24 @@
       document.getElementById("basket-clear").addEventListener("click", () => {
         basket = []; saveBasket(); renderBasket(); renderSidebar();
       });
+      // Deeplink aus URL-Hash herstellen: #<parliament>/<wp>/<kind>/<slug>
+      handleHash();
+      window.addEventListener("hashchange", handleHash);
+    }
+
+    function handleHash() {
+      const h = location.hash.replace(/^#/, "");
+      if (!h) return;
+      const parts = h.split("/");
+      if (parts.length < 4) return;
+      const [parliament, wp, kind, slug] = parts;
+      if (!["person", "fraktion"].includes(kind)) return;
+      const p = metadata.parliaments.find(x => x.slug === parliament);
+      const w = p?.wahlperioden.find(x => x.wp === Number(wp));
+      const list = kind === "person" ? w?.personen : w?.fraktionen;
+      const entry = list?.find(x => x.slug === slug);
+      if (!entry) return;
+      selectFeed({ parliament, wp: Number(wp), kind, slug, label: entry.label }, { skipHashUpdate: true });
     }
 
     function renderOverview() {
@@ -480,8 +498,13 @@
 
     function onSearch(e) { renderSidebar(e.target.value); }
 
-    async function selectFeed(sel) {
+    async function selectFeed(sel, opts = {}) {
       currentSelection = sel;
+      // URL-Hash mit der aktuellen Auswahl spiegeln, damit man teilen kann.
+      if (!opts.skipHashUpdate) {
+        const newHash = `#${sel.parliament}/${sel.wp}/${sel.kind}/${sel.slug}`;
+        if (location.hash !== newHash) history.replaceState(null, "", newHash);
+      }
       renderSidebar(document.getElementById("search").value);
       // Mobile: Sidebar nach Auswahl zuklappen, damit der Content sichtbar wird.
       if (window.matchMedia("(max-width: 760px)").matches) {
@@ -548,6 +571,10 @@
 
     function renderTypeFilter(items) {
       const types = new Set(items.map(i => i.type));
+      // Beim Feed-Wechsel die Filter so setzen, dass alle Typen im aktuellen
+      // Feed sichtbar sind. Sonst kann ein zuvor abgewaehlter Type-Chip
+      // hier "Keine Items" verursachen, obwohl der Feed Items hat.
+      activeTypes = new Set(types);
       const wrap = document.getElementById("type-filter");
       wrap.innerHTML = Array.from(types).map(t => `
         <span class="type-chip ${activeTypes.has(t) ? "active" : ""}" data-type="${t}">${TYPE_LABELS[t] ?? t}</span>
