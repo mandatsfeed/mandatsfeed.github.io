@@ -240,10 +240,52 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     mark { background: #fff3cd; border-radius: 2px; padding: 0 1px; }
+
+    /* Mobile */
+    .menu-toggle {
+      display: none;
+      background: none; border: 1px solid var(--border);
+      color: var(--text); padding: 6px 10px; border-radius: var(--radius);
+      cursor: pointer; font-size: 18px; line-height: 1;
+    }
+    @media (max-width: 760px) {
+      header { gap: 8px; padding: 10px 12px; flex-wrap: wrap; }
+      .logo { font-size: 16px; }
+      .logo .tagline { display: none; }
+      .nav-link { display: none; }
+      .search-wrap { order: 3; flex-basis: 100%; max-width: none; }
+      .basket-toggle { padding: 6px 10px; font-size: 12px; }
+      .menu-toggle { display: inline-flex; }
+      main {
+        display: block;
+        height: auto;
+        min-height: calc(100vh - 53px);
+      }
+      aside.sidebar {
+        width: 100%; min-width: 0;
+        max-height: 60vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        display: none;
+      }
+      aside.sidebar.open { display: block; }
+      .content { padding: 12px; }
+      .basket-panel {
+        position: fixed; inset: 53px 0 0 0;
+        width: 100%; min-width: 0;
+        border-left: none;
+        z-index: 90;
+      }
+      .feed-head { flex-direction: column; align-items: stretch; }
+      .feed-actions { flex-wrap: wrap; }
+      footer { flex-direction: column; gap: 4px; padding: 8px 12px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body>
   <header>
+    <button id="menu-toggle" class="menu-toggle" aria-label="Menü">☰</button>
     <a class="logo" href="./" title="Startseite">mandats<span class="feed">feed</span> <span class="tagline">· Parlamentarische Aktivität</span></a>
     <div class="search-wrap">
       <input id="search" class="search-input" placeholder="Person oder Fraktion suchen …">
@@ -324,6 +366,9 @@
       document.getElementById("search").addEventListener("input", onSearch);
       document.getElementById("basket-toggle").addEventListener("click", () => {
         document.getElementById("basket-panel").classList.toggle("open");
+      });
+      document.getElementById("menu-toggle").addEventListener("click", () => {
+        document.getElementById("sidebar").classList.toggle("open");
       });
       document.getElementById("basket-clear").addEventListener("click", () => {
         basket = []; saveBasket(); renderBasket(); renderSidebar();
@@ -431,6 +476,10 @@
     async function selectFeed(sel) {
       currentSelection = sel;
       renderSidebar(document.getElementById("search").value);
+      // Mobile: Sidebar nach Auswahl zuklappen, damit der Content sichtbar wird.
+      if (window.matchMedia("(max-width: 760px)").matches) {
+        document.getElementById("sidebar").classList.remove("open");
+      }
       const parliament = metadata.parliaments.find(p => p.slug === sel.parliament);
       const wp = parliament.wahlperioden.find(w => w.wp === sel.wp);
       const collection = sel.kind === "person" ? wp.personen : wp.fraktionen;
