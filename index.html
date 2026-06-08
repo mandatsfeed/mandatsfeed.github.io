@@ -278,7 +278,11 @@
   </footer>
 
   <script>
-    const METADATA_URL = "./mandatsfeed/metadata.json";
+    // GitHub-Pages-Layout: mandatsfeed.github.io serviert die UI, der Daten-Repo
+    // mandatsfeed/mandatsfeed serviert sich selbst unter /mandatsfeed/ (Projekt-
+    // Page der Organisation). Die rssUrl-Felder im metadata.json beginnen mit
+    // "wiki/" — die hängen wir direkt an /mandatsfeed/ an.
+    const METADATA_URL = "./mandatsfeed/wiki/metadata.json";
     const REPO_BASE = "./mandatsfeed/";
     const TYPE_LABELS = {
       "rede": "Rede",
@@ -429,7 +433,7 @@
       const wp = parliament.wahlperioden.find(w => w.wp === sel.wp);
       const collection = sel.kind === "person" ? wp.personen : wp.fraktionen;
       const entry = collection.find(e => e.slug === sel.slug);
-      const rssUrl = REPO_BASE + entry.rssUrl.replace(/^wiki\//, "");
+      const rssUrl = REPO_BASE + entry.rssUrl;
       const content = document.getElementById("content");
       content.innerHTML = `
         <div class="feed-head">
