@@ -335,6 +335,7 @@
     // "wiki/" — die hängen wir direkt an /mandatsfeed/ an.
     const METADATA_URL = "./mandatsfeed/wiki/metadata.json";
     const REPO_BASE = "./mandatsfeed/";
+    const REPO_URL_BASE = "https://mandatsfeed.github.io/mandatsfeed/";
     const TYPE_LABELS = {
       "rede": "Rede",
       "antrag": "Antrag",
@@ -514,7 +515,7 @@
       const wp = parliament.wahlperioden.find(w => w.wp === sel.wp);
       const collection = sel.kind === "person" ? wp.personen : wp.fraktionen;
       const entry = collection.find(e => e.slug === sel.slug);
-      const rssUrl = REPO_BASE + entry.rssUrl;
+      const rssUrl = REPO_URL_BASE + entry.rssUrl;
       const content = document.getElementById("content");
       content.innerHTML = `
         <div class="feed-head">
